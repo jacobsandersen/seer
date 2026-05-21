@@ -1,0 +1,10 @@
+name = "seer"
+main = "build/index.js"
+compatibility_date = "2026-05-21"
+
+[build]
+command = "cargo install -q \"worker-build@^0.8\" && worker-build --release"
+
+[[kv_namespaces]]
+binding = "seer_cache"
+id = "cd7d3d3e27c541f1ab528846da17abf1"
