@@ -21,7 +21,10 @@ pub async fn handle(State(state): State<AppState>) -> Result<Response, Response>
     Ok(Some(now_playing)) => Some(now_playing),
     Ok(None) => match fetch_now_playing(&state.lastfm_key, &state.kv).await {
       Ok(now_playing) => Some(now_playing),
-      Err(e) => return Err(error(&format!("error while fetching now_playing state: {e:?}")))
+      Err(e) => match e {
+        NowPlayingError::None => None,
+        e => return Err(error(&format!("error while fetching now_playing state: {e:?}")))
+      }
     },
     Err(_e) => return Err(error("error while getting from seer_cache"))
   };
