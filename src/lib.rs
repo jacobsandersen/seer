@@ -2,7 +2,7 @@ mod lastfm;
 mod hardcover;
 mod resp;
 
-use axum::{Router, http::HeaderValue, routing::get};
+use axum::{routing::get, Router};
 use tower_service::Service;
 use worker::*;
 
@@ -46,17 +46,5 @@ async fn fetch(
       kv
     };
 
-    let mut resp = router(state).call(req).await?;
-
-    let cors_headers = [
-      ("Access-Control-Allow-Origin", "*"),
-      ("Access-Control-Allow-Methods", "GET")
-    ];
-
-    let headers = resp.headers_mut();
-    for (key, value) in cors_headers {
-      headers.append(key, HeaderValue::from_str(value)?);
-    }
-
-    Ok(resp)
+    Ok(router(state).call(req).await?)
 }
