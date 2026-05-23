@@ -1,8 +1,12 @@
 use axum::{extract::State, response::Response};
 use serde::{Deserialize, Serialize};
-use worker::{KvStore, console_error};
+use worker::{console_error, KvStore};
 
-use crate::{AppState, lastfm::build_request, resp::{error, ok}};
+use crate::{
+  lastfm::build_request,
+  resp::{error, ok},
+  AppState,
+};
 
 const CACHE_KEY: &str = "lastfm_now_playing";
 
@@ -12,7 +16,7 @@ enum NowPlayingError {
   None,
 
   #[error("reqwest error: {0}")]
-  Reqwest(#[from] reqwest::Error)
+  Reqwest(#[from] reqwest::Error),
 }
 
 #[worker::send]
@@ -23,10 +27,14 @@ pub async fn handle(State(state): State<AppState>) -> Result<Response, Response>
       Ok(now_playing) => Some(now_playing),
       Err(e) => match e {
         NowPlayingError::None => None,
-        e => return Err(error(&format!("error while fetching now_playing state: {e:?}")))
-      }
+        e => {
+          return Err(error(&format!(
+            "error while fetching now_playing state: {e:?}"
+          )))
+        }
+      },
     },
-    Err(_e) => return Err(error("error while getting from seer_cache"))
+    Err(_e) => return Err(error("error while getting from seer_cache")),
   };
 
   Ok(ok("success", now_playing))
@@ -35,12 +43,12 @@ pub async fn handle(State(state): State<AppState>) -> Result<Response, Response>
 #[derive(Deserialize)]
 struct ApiResponse {
   #[serde(rename = "recenttracks")]
-  recent_tracks: RecentTracksNode
+  recent_tracks: RecentTracksNode,
 }
 
 #[derive(Deserialize)]
 struct RecentTracksNode {
-  track: Vec<TrackNode>
+  track: Vec<TrackNode>,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -54,7 +62,7 @@ struct TrackNode {
 #[derive(Deserialize, Serialize, Clone)]
 struct ArtistNode {
   #[serde(rename = "#text")]
-  text: String
+  text: String,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -62,7 +70,7 @@ struct ImageNode {
   size: String,
 
   #[serde(rename = "#text")]
-  text: String
+  text: String,
 }
 
 async fn fetch_now_playing(key: &str, kv: &KvStore) -> Result<TrackNode, NowPlayingError> {
@@ -75,11 +83,11 @@ async fn fetch_now_playing(key: &str, kv: &KvStore) -> Result<TrackNode, NowPlay
 
   let tracks = res.recent_tracks.track;
   if tracks.len() == 0 {
-    return Err(NowPlayingError::None)
+    return Err(NowPlayingError::None);
   }
 
   let track = tracks[0].clone();
-  
+
   if let Ok(opts) = kv.put(CACHE_KEY, &track) {
     let ttl = chrono::Duration::minutes(1).num_seconds() as u64;
     if let Err(e) = opts.expiration_ttl(ttl).execute().await {

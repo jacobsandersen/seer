@@ -1,0 +1,32 @@
+query MyBooksQuery($status_id: Int = 3, $limit: Int = 10, $offset: Int = 0) {
+  me {
+    user_books_aggregate(
+      where: {status_id: {_eq: $status_id}}
+    ) {
+      aggregate {
+        count
+      }
+    }
+    
+    user_books(
+      where: {status_id: {_eq: $status_id}}
+      order_by: [{last_read_date: desc}, {date_added: desc}]
+      limit: $limit
+      offset: $offset
+    ) {
+      last_read_date
+      read_count
+      book {
+        title
+        contributions {
+          author {
+            name
+          }
+        }
+        image {
+          url
+        }
+      }
+    }
+  }
+}
