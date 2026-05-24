@@ -54,24 +54,24 @@ struct ImageNode {
   text: String,
 }
 #[worker::send]
-pub async fn handle(State(state): State<AppState>) -> Result<Response, Response> {
-  if let Ok(Some(value)) = &state.kv.get(CACHE_KEY).json::<TrackNode>().await {
-    return Ok(ok("success", Some(value)));
+pub async fn handle(State(state): State<AppState>) -> Response {
+  let Ok(kv) = state.cf.kv(crate::CACHE_NS) else {
+    return error("failed to get kv");
+  };
+
+  if let Ok(Some(value)) = kv.get(CACHE_KEY).json::<TrackNode>().await {
+    return ok("success", Some(value));
   }
-  
-  let now_playing = match fetch_now_playing(&state.lastfm_key, &state.kv).await {
+
+  let now_playing = match fetch_now_playing(&state.lastfm_key, &kv).await {
     Ok(now_playing) => Some(now_playing),
     Err(e) => match e {
       NowPlayingError::None => None,
-      e => {
-        return Err(error(&format!(
-          "error while fetching now_playing state: {e:?}"
-        )))
-      }
+      e => return error(&format!("error while fetching now_playing state: {e:?}")),
     },
   };
 
-  Ok(ok("success", now_playing))
+  ok("success", now_playing)
 }
 
 async fn fetch_now_playing(key: &str, kv: &KvStore) -> Result<TrackNode, NowPlayingError> {

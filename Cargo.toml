@@ -8,7 +8,7 @@ authors = ["Jacob Andersen <19645494+jacobsandersen@users.noreply.github.com>"]
 crate-type = ["cdylib"]
 
 [dependencies]
-worker = { version = "0.8", features = ['http', 'axum'] }
+worker = { version = "0.8", features = ['http', 'axum', 'd1'] }
 worker-macros = { version = "0.8", features = ['http'] }
 axum = { version = "0.8", default-features = false, features = ['json', 'query'] }
 tower-service = "0.3.3"
@@ -18,3 +18,4 @@ thiserror = "2.0.18"
 graphql_client = "0.16.0"
 reqwest = { version = "0.13.3", features = ["json", "query"] }
 chrono = { version = "0.4.44", features = ["serde"] }
+geojson = "1.0.0"

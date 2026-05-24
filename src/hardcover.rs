@@ -104,20 +104,20 @@ fn status_from_str(s: &str) -> Option<usize> {
 }
 
 #[worker::send]
-pub async fn handle(
-  State(state): State<AppState>,
-  opts: Query<RequestOpts>,
-) -> Result<Response, Response> {
-  let page = opts.page.unwrap_or(1).max(1);
+pub async fn handle(State(state): State<AppState>, opts: Query<RequestOpts>) -> Response {
+  let Ok(kv) = state.cf.kv(crate::CACHE_NS) else {
+    return error("failed to get kv");
+  };
 
+  let page = opts.page.unwrap_or(1).max(1);
   let cache_key = &build_cache_key(&opts.status, opts.limit, page);
 
-  if let Ok(Some(value)) = &state.kv.get(cache_key).json::<BooksResponse>().await {
-    return Ok(ok("success", Some(value)));
+  if let Ok(Some(value)) = kv.get(cache_key).json::<BooksResponse>().await {
+    return ok("success", Some(value));
   }
 
   let res = fetch_books(
-    &state.kv,
+    &kv,
     cache_key,
     &FetchContext {
       hardcover_key: &state.hardcover_key,
@@ -131,13 +131,13 @@ pub async fn handle(
   let books = match res {
     Ok(now_reading) => Some(now_reading),
     Err(e) => {
-      return Err(error(&format!(
+      return error(&format!(
         "error while fetching previously_read state: {e:?}"
-      )))
+      ))
     }
   };
 
-  Ok(ok("success", books))
+  ok("success", books)
 }
 
 async fn fetch_books<'a>(
