@@ -13,3 +13,4 @@ id = "cd7d3d3e27c541f1ab528846da17abf1"
 binding = "seer_geo"
 database_name = "seer-geo"
 database_id = "d183d0c2-082d-4a0b-b0fe-34fcdc7e9eb7"
+remote = true

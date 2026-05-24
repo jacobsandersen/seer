@@ -4,5 +4,5 @@ use crate::{resp::ok, AppState};
 
 #[worker::send]
 pub async fn handle(State(_state): State<AppState>) -> Response {
-  ok::<()>("success", None)
+  ok::<()>("not_yet_implemented", None)
 }

@@ -1,2 +1,3 @@
-pub mod consume;
+pub mod ingest;
 pub mod query;
+pub mod util;
