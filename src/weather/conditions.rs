@@ -97,6 +97,5 @@ pub async fn handle(State(state): State<AppState>) -> Response {
 
   let conditions = conditions.unwrap();
 
-
   ok("success", Some(conditions))
 }

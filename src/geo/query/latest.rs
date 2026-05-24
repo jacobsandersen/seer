@@ -17,7 +17,8 @@ pub enum LatestLocationError {
 pub async fn get_latest_location(kv: &KvStore, d1: &D1Database) -> Result<Option<GeoJson>, LatestLocationError> {
   let cache_key = "geo_latest_pos";
 
-  if let Ok(Some(pos)) = kv.get(cache_key).json::<GeoJson>().await {
+  if let Ok(Some(pos)) = kv.get(cache_key).text().await {
+    let pos = serde_json::from_str::<GeoJson>(&pos)?;
     return Ok(Some(pos));
   }
 
@@ -30,14 +31,9 @@ pub async fn get_latest_location(kv: &KvStore, d1: &D1Database) -> Result<Option
   match result.unwrap() {
     None => Ok(None),
     Some(location) => {
-      let location = serde_json::from_str::<GeoJson>(&location);
-      if location.is_err() {
-        return Err(LatestLocationError::Serde(location.unwrap_err()));
-      }
-
-      let location = location.unwrap();
-
-      if let Ok(opts) = kv.put(cache_key, &location) {
+      let location = serde_json::from_str::<GeoJson>(&location)?;
+      
+      if let Ok(opts) = kv.put(cache_key, &location.to_string()) {
         let ttl = chrono::Duration::minutes(30).num_seconds() as u64;
         if let Err(e) = opts.expiration_ttl(ttl).execute().await {
           console_error!("kv put failed: {e:?}");
