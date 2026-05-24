@@ -17,8 +17,8 @@ pub enum LatestLocationError {
 pub async fn get_latest_location(kv: &KvStore, d1: &D1Database) -> Result<Option<GeoJson>, LatestLocationError> {
   let cache_key = "geo_latest_pos";
 
-  if let Ok(pos) = kv.get(cache_key).json::<GeoJson>().await {
-    return Ok(pos);
+  if let Ok(Some(pos)) = kv.get(cache_key).json::<GeoJson>().await {
+    return Ok(Some(pos));
   }
 
   let stmt = d1.prepare("select data from record order by timestamp desc limit 1");
