@@ -17,13 +17,10 @@ struct AppState {
 
 fn router(state: AppState) -> Router {
   Router::new()
-    .nest(
-      "/lastfm",
-      Router::new().route("/now", get(lastfm::now_playing::handle)),
-    )
+    .route("/lastfm", get(lastfm::handle))
     .nest(
       "/hardcover",
-      Router::new().route("/books", get(hardcover::handle)),
+      Router::new().route("/books", get(hardcover::handle))
     )
     .with_state(state)
 }
