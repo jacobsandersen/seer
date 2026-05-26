@@ -2,6 +2,7 @@ use std::{process::exit, sync::Arc};
 
 use axum::{
   extract::{Request, State},
+  http,
   middleware::{self, Next},
   response::Response,
   routing::{get, post},
@@ -12,12 +13,15 @@ use axum_extra::{
   TypedHeader,
 };
 use config::{Config, Environment, File};
+use opentelemetry::global;
+use opentelemetry_http::HeaderExtractor;
 use seer::{
   config::SeerConfig, db, geo, hardcover, lastfm, redis, resp, telemetry, weather, AppState,
 };
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
-use tracing::{error, info};
+use tracing::{error, info, info_span};
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 use validator::Validate;
 
 async fn auth_middleware(
@@ -59,7 +63,15 @@ fn router(state: AppState) -> Router {
       state.clone(),
       auth_middleware,
     ))
-    .layer(TraceLayer::new_for_http())
+    .layer(TraceLayer::new_for_http().make_span_with(|req: &http::Request<_>| {
+      info_span!("http.request", method = %&req.method(), uri = %&req.uri())
+    }).on_request(|_req: &http::Request<_>, _span: &tracing::Span| {
+      let headers = _req.headers();
+      let parent_cx = global::get_text_map_propagator(|prop| {
+        prop.extract(&HeaderExtractor(headers))
+      });
+      let _ = _span.set_parent(parent_cx);
+    }))
     .with_state(state)
 }
 

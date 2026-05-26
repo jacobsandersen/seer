@@ -23,6 +23,7 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 opentelemetry = "0.32.0"
 opentelemetry-appender-tracing = "0.32.0"
 opentelemetry-otlp = { version = "0.32.0", features = ["grpc-tonic", "logs"] }
+opentelemetry-http = "0.32.0"
 opentelemetry-semantic-conventions = "0.32.0"
 opentelemetry_sdk = { version = "0.32.0", features = ["rt-tokio", "logs"] }
 validator = { version = "0.20.0", features = ["derive"] }
