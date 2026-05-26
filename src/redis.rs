@@ -5,7 +5,7 @@ use redis::{
   AsyncCommands, Client, RedisError, RedisResult,
 };
 use serde::{de::DeserializeOwned, Serialize};
-use tracing::{info, info_span, instrument, Instrument};
+use tracing::{info, instrument};
 
 use crate::config::Redis;
 
