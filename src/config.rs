@@ -5,7 +5,10 @@ use serde::Deserialize;
 use validator::Validate;
 
 static RE_IPV4: LazyLock<Regex> = LazyLock::new(|| {
-  Regex::new(r"(\b25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}").unwrap()
+  Regex::new(
+    r"(\b25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}",
+  )
+  .unwrap()
 });
 
 #[derive(Debug, Validate, Deserialize)]
@@ -47,12 +50,12 @@ pub struct Binding {
   pub ip: String,
 
   /// The port to bind to
-  pub port: u16
+  pub port: u16,
 }
 
-impl std::fmt::Display for Binding { 
+impl std::fmt::Display for Binding {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-      write!(f, "{}:{}", self.ip, self.port)
+    write!(f, "{}:{}", self.ip, self.port)
   }
 }
 
@@ -95,7 +98,7 @@ pub struct Db {
 
   /// The database username
   pub username: String,
-  
+
   /// The database password
   pub password: String,
 

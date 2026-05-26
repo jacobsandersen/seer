@@ -16,6 +16,7 @@ use seer::{
   config::SeerConfig, db, geo, hardcover, lastfm, redis, resp, telemetry, weather, AppState,
 };
 use tokio::net::TcpListener;
+use tower_http::trace::TraceLayer;
 use tracing::{error, info};
 use validator::Validate;
 
@@ -58,6 +59,7 @@ fn router(state: AppState) -> Router {
       state.clone(),
       auth_middleware,
     ))
+    .layer(TraceLayer::new_for_http())
     .with_state(state)
 }
 

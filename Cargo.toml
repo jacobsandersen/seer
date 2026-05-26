@@ -32,3 +32,4 @@ otel-instrumentation-redis = { version = "0.1.1", features = ["aio"] }
 sqlx = { version = "0.9.0", features = ["postgres", "runtime-tokio"] }
 urlencoding = "2.1.3"
 regex = "1.12.3"
+tower-http = { version = "0.6.11", features = ["full"] }
