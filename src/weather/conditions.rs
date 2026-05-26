@@ -1,7 +1,7 @@
 use axum::{extract::State, response::Response};
 use chrono::Duration;
 use serde::{Deserialize, Serialize};
-use tracing::error;
+use tracing::{error, instrument};
 
 use crate::{
   geo::{self, util::Coords},
@@ -37,6 +37,7 @@ pub enum WeatherError {
   Reqwest(#[from] reqwest::Error),
 }
 
+#[instrument]
 pub async fn get_conditions(
   state: &mut AppState,
   cache_key: &str,
@@ -65,6 +66,7 @@ pub async fn get_conditions(
   Ok(conditions)
 }
 
+#[instrument]
 pub async fn handle(State(mut state): State<AppState>) -> Response {
   let cache_key = "latest_weather";
 

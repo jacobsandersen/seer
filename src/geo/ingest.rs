@@ -6,7 +6,7 @@ use axum::{
 use geojson::GeoJson;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tracing::error;
+use tracing::{error, instrument};
 
 use crate::{resp::error, AppState};
 
@@ -35,6 +35,7 @@ pub struct IngestionPayload {
   trip: Option<Trip>,
 }
 
+#[instrument(skip(pool))]
 async fn ingest_batch(pool: &sqlx::PgPool, payload: IngestionPayload) -> Result<(), IngestError> {
   let serialized: Vec<serde_json::Value> = payload
     .locations
@@ -54,6 +55,7 @@ async fn ingest_batch(pool: &sqlx::PgPool, payload: IngestionPayload) -> Result<
   Ok(())
 }
 
+#[instrument]
 pub async fn handle(
   State(state): State<AppState>,
   Json(payload): Json<IngestionPayload>,

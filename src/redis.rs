@@ -5,7 +5,7 @@ use redis::{
   AsyncCommands, Client, RedisError, RedisResult,
 };
 use serde::{de::DeserializeOwned, Serialize};
-use tracing::{info, info_span, Instrument};
+use tracing::{info, info_span, instrument, Instrument};
 
 use crate::config::Redis;
 
@@ -51,35 +51,27 @@ pub trait JsonExt {
 }
 
 impl JsonExt for ConnectionManager {
+  #[instrument(fields(key = %key))]
   async fn get_json<T: DeserializeOwned>(&mut self, key: &str) -> RedisResult<Option<T>> {
-    let span = info_span!("redis.get_json", key = %key);
-    async {
-      let raw: Option<String> = self.get(key).await?;
-      match raw {
-        Some(s) => Ok(Some(serde_json::from_str(&s).map_err(|e| {
-          RedisError::from((redis::ErrorKind::Io, "json deserialize", e.to_string()))
-        })?)),
-        None => Ok(None),
-      }
+    let raw: Option<String> = self.get(key).await?;
+    match raw {
+      Some(s) => Ok(Some(serde_json::from_str(&s).map_err(|e| {
+        RedisError::from((redis::ErrorKind::Io, "json deserialize", e.to_string()))
+      })?)),
+      None => Ok(None),
     }
-    .instrument(span)
-    .await
   }
 
+  #[instrument(skip(value), fields(key = %key, ttl = %ttl))]
   async fn set_json<T: Serialize>(
     &mut self,
     key: &str,
     value: &T,
     ttl: chrono::Duration,
   ) -> RedisResult<()> {
-    let span = info_span!("redis.set_json", key = %key, ttl = %ttl);
-    async {
-      let json = serde_json::to_string(value)
-        .map_err(|e| RedisError::from((redis::ErrorKind::Io, "json serialize", e.to_string())))?;
+    let json = serde_json::to_string(value)
+      .map_err(|e| RedisError::from((redis::ErrorKind::Io, "json serialize", e.to_string())))?;
 
-      self.set_ex(key, json, ttl.num_seconds() as u64).await
-    }
-    .instrument(span)
-    .await
+    self.set_ex(key, json, ttl.num_seconds() as u64).await
   }
 }

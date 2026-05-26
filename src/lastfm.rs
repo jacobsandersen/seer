@@ -2,7 +2,7 @@ use crate::redis::JsonExt;
 use axum::{extract::State, response::Response};
 use chrono::Duration;
 use serde::{Deserialize, Serialize};
-use tracing::error;
+use tracing::{error, instrument};
 
 use crate::{
   resp::{error, ok},
@@ -55,6 +55,8 @@ struct ImageNode {
   #[serde(rename = "#text")]
   text: String,
 }
+
+#[instrument]
 pub async fn handle(State(mut state): State<AppState>) -> Response {
   if let Ok(Some(value)) = state.redis.get_json::<TrackNode>(CACHE_KEY).await {
     return ok("success", Some(value));
@@ -71,6 +73,7 @@ pub async fn handle(State(mut state): State<AppState>) -> Response {
   ok("success", now_playing)
 }
 
+#[instrument]
 async fn fetch_now_playing(state: &mut AppState) -> Result<TrackNode, NowPlayingError> {
   let res = reqwest::Client::new()
     .get(API_BASE_URL)

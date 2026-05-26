@@ -6,7 +6,7 @@ use axum::{
 };
 use graphql_client::GraphQLQuery;
 use serde::{Deserialize, Serialize};
-use tracing::error;
+use tracing::{error, instrument};
 
 use crate::{
   hardcover::query::{my_books_query, MyBooksQuery},
@@ -73,13 +73,14 @@ enum BooksError {
   Reqwest(#[from] reqwest::Error),
 }
 
+#[derive(Debug)]
 struct FetchContext<'a> {
   limit: usize,
   page: usize,
   status: &'a str,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct RequestOpts {
   status: String,
   limit: usize,
@@ -103,6 +104,7 @@ fn status_from_str(s: &str) -> Option<usize> {
   map.get(s).copied()
 }
 
+#[instrument]
 pub async fn handle(State(mut state): State<AppState>, opts: Query<RequestOpts>) -> Response {
   let page = opts.page.unwrap_or(1).max(1);
   let cache_key = &build_cache_key(&opts.status, opts.limit, page);
@@ -134,6 +136,7 @@ pub async fn handle(State(mut state): State<AppState>, opts: Query<RequestOpts>)
   ok("success", books)
 }
 
+#[instrument]
 async fn fetch_books<'a>(
   state: &mut AppState,
   cache_key: &str,
@@ -191,6 +194,7 @@ async fn fetch_books<'a>(
 impl TryInto<(usize, Vec<DomainBook>)> for my_books_query::ResponseData {
   type Error = BooksError;
 
+  #[instrument(skip(self))]
   fn try_into(self) -> Result<(usize, Vec<DomainBook>), Self::Error> {
     if self.me.len() == 0 {
       return Err(BooksError::MissingMe);

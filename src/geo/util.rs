@@ -1,5 +1,7 @@
 use geojson::{GeoJson, GeometryValue};
+use tracing::instrument;
 
+#[derive(Debug)]
 pub struct Coords {
   pub longitude: f64,
   pub latitude: f64,
@@ -16,6 +18,7 @@ pub struct Coords {
 ///
 /// Given a GeoJson::FeatureCollection, it will try to find the first Feature in the
 /// collection and recurse with it.
+#[instrument]
 pub fn extract_coords(geo: GeoJson) -> Option<Coords> {
   match geo {
     GeoJson::Feature(f) => extract_coords(GeoJson::Geometry(f.geometry?)),

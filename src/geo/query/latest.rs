@@ -1,7 +1,7 @@
 use axum::{extract::State, response::Response};
 use chrono::Duration;
 use geojson::GeoJson;
-use tracing::error;
+use tracing::{error, instrument};
 
 use crate::{
   redis::JsonExt,
@@ -18,6 +18,7 @@ pub enum LatestLocationError {
   Sqlx(#[from] sqlx::Error),
 }
 
+#[instrument]
 pub async fn get_latest_location(
   state: &mut AppState,
 ) -> Result<Option<GeoJson>, LatestLocationError> {
@@ -49,6 +50,7 @@ pub async fn get_latest_location(
   }
 }
 
+#[instrument]
 pub async fn handle(State(mut state): State<AppState>) -> Response {
   match get_latest_location(&mut state).await {
     Ok(None) => ok::<()>("no_data", None),
