@@ -28,7 +28,6 @@ opentelemetry_sdk = { version = "0.32.0", features = ["rt-tokio", "logs"] }
 validator = { version = "0.20.0", features = ["derive"] }
 config = "0.15.23"
 redis = { version = "1.2.1", features = ["tokio-comp", "connection-manager"] }
-otel-instrumentation-redis = { version = "0.1.1", features = ["aio"] }
 sqlx = { version = "0.9.0", features = ["postgres", "runtime-tokio"] }
 urlencoding = "2.1.3"
 regex = "1.12.3"
