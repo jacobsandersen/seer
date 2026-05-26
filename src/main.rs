@@ -69,7 +69,7 @@ async fn main() -> anyhow::Result<()> {
   let config: Arc<SeerConfig> = Arc::new(
     Config::builder()
       .add_source(File::with_name("config").required(false))
-      .add_source(Environment::default().separator("_"))
+      .add_source(Environment::default().separator("__"))
       .build()?
       .try_deserialize()?,
   );
