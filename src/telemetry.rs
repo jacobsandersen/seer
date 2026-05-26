@@ -8,7 +8,7 @@ use crate::config::Telemetry;
 
 fn resource() -> Resource {
   Resource::builder()
-    .with_attribute(KeyValue::new(SERVICE_NAME, "scribble"))
+    .with_attribute(KeyValue::new(SERVICE_NAME, "seer"))
     .build()
 }
 
