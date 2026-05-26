@@ -64,13 +64,13 @@ fn router(state: AppState) -> Router {
       auth_middleware,
     ))
     .layer(TraceLayer::new_for_http().make_span_with(|req: &http::Request<_>| {
-      info_span!("http.request", method = %&req.method(), uri = %&req.uri())
-    }).on_request(|_req: &http::Request<_>, _span: &tracing::Span| {
-      let headers = _req.headers();
       let parent_cx = global::get_text_map_propagator(|prop| {
-        prop.extract(&HeaderExtractor(headers))
+        prop.extract(&HeaderExtractor(req.headers()))
       });
-      let _ = _span.set_parent(parent_cx);
+
+      let span = info_span!("http.request", method = %&req.method(), uri = %&req.uri());
+      let _ = span.set_parent(parent_cx);
+      span
     }))
     .with_state(state)
 }
