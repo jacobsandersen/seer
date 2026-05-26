@@ -1,43 +1,47 @@
 use axum::{extract::State, response::Response};
+use chrono::Duration;
 use geojson::GeoJson;
-use worker::{D1Database, KvStore, console_error};
+use tracing::error;
 
-use crate::{AppState, resp::{error, ok}};
-
+use crate::{
+  redis::JsonExt,
+  resp::{error, ok},
+  AppState,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum LatestLocationError {
-  #[error("worker error occurred: {0}")]
-  Worker(#[from] worker::Error),
-
   #[error("serde error occurred: {0}")]
-  Serde(#[from] serde_json::Error)
+  Serde(#[from] serde_json::Error),
+
+  #[error("sqlx error: {0}")]
+  Sqlx(#[from] sqlx::Error),
 }
 
-pub async fn get_latest_location(kv: &KvStore, d1: &D1Database) -> Result<Option<GeoJson>, LatestLocationError> {
+pub async fn get_latest_location(
+  state: &mut AppState,
+) -> Result<Option<GeoJson>, LatestLocationError> {
   let cache_key = "geo_latest_pos";
 
-  if let Ok(Some(pos)) = kv.get(cache_key).text().await {
-    let pos = serde_json::from_str::<GeoJson>(&pos)?;
+  if let Ok(Some(pos)) = state.redis.get_json::<GeoJson>(cache_key).await {
     return Ok(Some(pos));
   }
 
-  let stmt = d1.prepare("select data from record order by timestamp desc limit 1");
-  let result = stmt.first::<String>(Some("data")).await;
-  if result.is_err() {
-    return Err(LatestLocationError::Worker(result.unwrap_err()));
-  }
+  let data: Option<(String,)> = sqlx::query_as("select data from geodata order by ts desc limit 1")
+    .fetch_optional(&state.db)
+    .await?;
 
-  match result.unwrap() {
+  match data {
     None => Ok(None),
     Some(location) => {
-      let location = serde_json::from_str::<GeoJson>(&location)?;
-      
-      if let Ok(opts) = kv.put(cache_key, &location.to_string()) {
-        let ttl = chrono::Duration::minutes(30).num_seconds() as u64;
-        if let Err(e) = opts.expiration_ttl(ttl).execute().await {
-          console_error!("kv put failed: {e:?}");
-        }
+      let location = serde_json::from_str::<GeoJson>(&location.0)?;
+
+      if let Err(e) = state
+        .redis
+        .set_json(cache_key, &location, Duration::minutes(30))
+        .await
+      {
+        error!("failed to put latest location in redis: {e:?}");
       }
 
       Ok(Some(location))
@@ -45,21 +49,12 @@ pub async fn get_latest_location(kv: &KvStore, d1: &D1Database) -> Result<Option
   }
 }
 
-#[worker::send]
-pub async fn handle(State(state): State<AppState>) -> Response {
-  let Ok(kv) = state.cf.kv(crate::CACHE_NS) else {
-    return error("failed to get kv")
-  };
-
-  let Ok(d1) = state.cf.d1(crate::GEO_DB) else {
-    return error("failed to get d1")
-  };
-
-  match get_latest_location(&kv, &d1).await {
+pub async fn handle(State(mut state): State<AppState>) -> Response {
+  match get_latest_location(&mut state).await {
     Ok(None) => ok::<()>("no_data", None),
     Ok(Some(location)) => ok("success", Some(location)),
     Err(e) => {
-      console_error!("failed to query latest location: {e:?}");
+      error!("failed to query latest location: {e:?}");
       error("failed to query latest location")
     }
   }

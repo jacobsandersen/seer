@@ -6,10 +6,11 @@ use axum::{
 };
 use graphql_client::GraphQLQuery;
 use serde::{Deserialize, Serialize};
-use worker::{console_error, KvStore};
+use tracing::error;
 
 use crate::{
   hardcover::query::{my_books_query, MyBooksQuery},
+  redis::JsonExt,
   resp::{error, ok},
   AppState,
 };
@@ -73,7 +74,6 @@ enum BooksError {
 }
 
 struct FetchContext<'a> {
-  hardcover_key: &'a str,
   limit: usize,
   page: usize,
   status: &'a str,
@@ -103,24 +103,18 @@ fn status_from_str(s: &str) -> Option<usize> {
   map.get(s).copied()
 }
 
-#[worker::send]
-pub async fn handle(State(state): State<AppState>, opts: Query<RequestOpts>) -> Response {
-  let Ok(kv) = state.cf.kv(crate::CACHE_NS) else {
-    return error("failed to get kv");
-  };
-
+pub async fn handle(State(mut state): State<AppState>, opts: Query<RequestOpts>) -> Response {
   let page = opts.page.unwrap_or(1).max(1);
   let cache_key = &build_cache_key(&opts.status, opts.limit, page);
 
-  if let Ok(Some(value)) = kv.get(cache_key).json::<BooksResponse>().await {
+  if let Ok(Some(value)) = state.redis.get_json::<BooksResponse>(cache_key).await {
     return ok("success", Some(value));
   }
 
   let res = fetch_books(
-    &kv,
+    &mut state,
     cache_key,
     &FetchContext {
-      hardcover_key: &state.hardcover_key,
       limit: opts.limit,
       page: page,
       status: &opts.status,
@@ -141,7 +135,7 @@ pub async fn handle(State(state): State<AppState>, opts: Query<RequestOpts>) -> 
 }
 
 async fn fetch_books<'a>(
-  kv: &KvStore,
+  state: &mut AppState,
   cache_key: &str,
   ctx: &FetchContext<'a>,
 ) -> Result<BooksResponse, BooksError> {
@@ -162,7 +156,10 @@ async fn fetch_books<'a>(
 
   let res: (usize, Vec<DomainBook>) = reqwest::Client::new()
     .post(HARDCOVER_GRAPHQL_ENDPOINT)
-    .header("Authorization", format!("Bearer {}", ctx.hardcover_key))
+    .header(
+      "Authorization",
+      format!("Bearer {}", state.config.hardcover_key),
+    )
     .json(&query)
     .send()
     .await?
@@ -180,11 +177,12 @@ async fn fetch_books<'a>(
     books: res.1,
   };
 
-  if let Ok(opts) = kv.put(cache_key, &res) {
-    let ttl = chrono::Duration::days(1).num_seconds() as u64;
-    if let Err(e) = opts.expiration_ttl(ttl).execute().await {
-      console_error!("kv put failed: {e}");
-    }
+  if let Err(e) = state
+    .redis
+    .set_json(cache_key, &res, chrono::Duration::days(1))
+    .await
+  {
+    error!("failed to put hardcover data in redis: {e:?}");
   }
 
   Ok(res)

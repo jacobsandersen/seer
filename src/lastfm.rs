@@ -1,6 +1,8 @@
+use crate::redis::JsonExt;
 use axum::{extract::State, response::Response};
+use chrono::Duration;
 use serde::{Deserialize, Serialize};
-use worker::{console_error, KvStore};
+use tracing::error;
 
 use crate::{
   resp::{error, ok},
@@ -53,17 +55,12 @@ struct ImageNode {
   #[serde(rename = "#text")]
   text: String,
 }
-#[worker::send]
-pub async fn handle(State(state): State<AppState>) -> Response {
-  let Ok(kv) = state.cf.kv(crate::CACHE_NS) else {
-    return error("failed to get kv");
-  };
-
-  if let Ok(Some(value)) = kv.get(CACHE_KEY).json::<TrackNode>().await {
+pub async fn handle(State(mut state): State<AppState>) -> Response {
+  if let Ok(Some(value)) = state.redis.get_json::<TrackNode>(CACHE_KEY).await {
     return ok("success", Some(value));
   }
 
-  let now_playing = match fetch_now_playing(&state.lastfm_key, &kv).await {
+  let now_playing = match fetch_now_playing(&mut state).await {
     Ok(now_playing) => Some(now_playing),
     Err(e) => match e {
       NowPlayingError::None => None,
@@ -74,13 +71,13 @@ pub async fn handle(State(state): State<AppState>) -> Response {
   ok("success", now_playing)
 }
 
-async fn fetch_now_playing(key: &str, kv: &KvStore) -> Result<TrackNode, NowPlayingError> {
+async fn fetch_now_playing(state: &mut AppState) -> Result<TrackNode, NowPlayingError> {
   let res = reqwest::Client::new()
     .get(API_BASE_URL)
     .query(&[
       ("method", "user.getRecentTracks"),
       ("user", "jacobandersen_"),
-      ("api_key", key),
+      ("api_key", &state.config.lastfm_key),
       ("format", "json"),
       ("limit", "1"),
     ])
@@ -96,11 +93,12 @@ async fn fetch_now_playing(key: &str, kv: &KvStore) -> Result<TrackNode, NowPlay
 
   let track = tracks[0].clone();
 
-  if let Ok(opts) = kv.put(CACHE_KEY, &track) {
-    let ttl = chrono::Duration::minutes(1).num_seconds() as u64;
-    if let Err(e) = opts.expiration_ttl(ttl).execute().await {
-      console_error!("kv put failed: {e}");
-    }
+  if let Err(e) = state
+    .redis
+    .set_json(CACHE_KEY, &track, Duration::minutes(1))
+    .await
+  {
+    error!("failed to save lastfm data to redis: {e:?}");
   }
 
   Ok(track)

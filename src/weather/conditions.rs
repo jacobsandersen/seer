@@ -1,9 +1,11 @@
 use axum::{extract::State, response::Response};
+use chrono::Duration;
 use serde::{Deserialize, Serialize};
-use worker::{KvStore, console_error};
+use tracing::error;
 
 use crate::{
   geo::{self, util::Coords},
+  redis::JsonExt,
   resp::{error, ok},
   weather, AppState,
 };
@@ -32,14 +34,18 @@ pub struct WeatherWindNode {
 #[derive(Debug, thiserror::Error)]
 pub enum WeatherError {
   #[error("reqwest error: {0}")]
-  Reqwest(#[from] reqwest::Error)
+  Reqwest(#[from] reqwest::Error),
 }
 
-pub async fn get_conditions(key: &str, cache_key: &str, kv: &KvStore, coords: Coords) -> Result<WeatherResp, WeatherError> {
+pub async fn get_conditions(
+  state: &mut AppState,
+  cache_key: &str,
+  coords: Coords,
+) -> Result<WeatherResp, WeatherError> {
   let conditions = reqwest::Client::new()
     .get(weather::OPENWEATHER_BASE_URL)
     .query(&[
-      ("appid", key),
+      ("appid", &state.config.openweather_key),
       ("lat", &format!("{}", coords.latitude)),
       ("lon", &format!("{}", coords.longitude)),
     ])
@@ -48,35 +54,27 @@ pub async fn get_conditions(key: &str, cache_key: &str, kv: &KvStore, coords: Co
     .json::<WeatherResp>()
     .await?;
 
-  if let Ok(opts) = kv.put(cache_key, &conditions) {
-    let ttl = chrono::Duration::hours(1).num_seconds() as u64;
-    if let Err(e) = opts.expiration_ttl(ttl).execute().await {
-      console_error!("kv put failed: {e:?}");
-    }
+  if let Err(e) = state
+    .redis
+    .set_json(cache_key, &conditions, Duration::hours(1))
+    .await
+  {
+    error!("failed to put latest weather conditions in redis: {e:?}");
   }
 
   Ok(conditions)
 }
 
-#[worker::send]
-pub async fn handle(State(state): State<AppState>) -> Response {
-  let Ok(kv) = state.cf.kv(crate::CACHE_NS) else {
-    return error("failed to get kv");
-  };
-
+pub async fn handle(State(mut state): State<AppState>) -> Response {
   let cache_key = "latest_weather";
 
-  if let Ok(Some(weather)) = kv.get(cache_key).json::<WeatherResp>().await {
-    return ok("success", Some(weather))
+  if let Ok(Some(weather)) = state.redis.get_json::<WeatherResp>(cache_key).await {
+    return ok("success", Some(weather));
   }
 
-  let Ok(d1) = state.cf.d1(crate::GEO_DB) else {
-    return error("failed to get d1");
-  };
-
-  let location = geo::query::latest::get_latest_location(&kv, &d1).await;
+  let location = geo::query::latest::get_latest_location(&mut state).await;
   if location.is_err() {
-    console_error!("failed to get latest location: {location:?}");
+    error!("failed to get latest location: {location:?}");
     return error("could not get latest location");
   }
 
@@ -87,12 +85,15 @@ pub async fn handle(State(state): State<AppState>) -> Response {
 
   let conditions = match geo::util::extract_coords(location.unwrap()) {
     None => return error("unable to extract coords from the latest location"),
-    Some(coords) => get_conditions(&state.openweather_key, cache_key, &kv, coords).await,
+    Some(coords) => get_conditions(&mut state, cache_key, coords).await,
   };
 
   if conditions.is_err() {
-    console_error!("current condition fetch failed: {:?}", conditions.unwrap_err());
-    return error("failed to fetch current conditions")
+    error!(
+      "current condition fetch failed: {:?}",
+      conditions.unwrap_err()
+    );
+    return error("failed to fetch current conditions");
   }
 
   let conditions = conditions.unwrap();
