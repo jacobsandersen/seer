@@ -67,7 +67,7 @@ pub async fn get_conditions(
 }
 
 #[instrument]
-pub async fn handle(State(mut state): State<AppState>) -> Response {
+pub async fn current_conditions(State(mut state): State<AppState>) -> Response {
   let cache_key = "latest_weather";
 
   if let Ok(Some(weather)) = state.redis.get_json::<WeatherResp>(cache_key).await {

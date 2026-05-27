@@ -105,7 +105,7 @@ fn status_from_str(s: &str) -> Option<usize> {
 }
 
 #[instrument]
-pub async fn handle(State(mut state): State<AppState>, opts: Query<RequestOpts>) -> Response {
+pub async fn books(State(mut state): State<AppState>, opts: Query<RequestOpts>) -> Response {
   let page = opts.page.unwrap_or(1).max(1);
   let cache_key = &build_cache_key(&opts.status, opts.limit, page);
 

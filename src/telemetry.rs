@@ -1,6 +1,8 @@
-use opentelemetry::{trace::TracerProvider, KeyValue};
+use opentelemetry::{global, trace::TracerProvider, KeyValue};
 use opentelemetry_otlp::{LogExporter, SpanExporter, WithExportConfig};
-use opentelemetry_sdk::{logs::SdkLoggerProvider, trace::SdkTracerProvider, Resource};
+use opentelemetry_sdk::{
+  logs::SdkLoggerProvider, propagation::TraceContextPropagator, trace::SdkTracerProvider, Resource,
+};
 use opentelemetry_semantic_conventions::resource::SERVICE_NAME;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -43,6 +45,8 @@ fn init_logs(otel_endpoint: &str) -> anyhow::Result<SdkLoggerProvider> {
 pub fn init_telemetry(
   cfg: &Telemetry,
 ) -> anyhow::Result<Option<(SdkTracerProvider, SdkLoggerProvider)>> {
+  global::set_text_map_propagator(TraceContextPropagator::new());
+
   if !cfg.enable {
     tracing_subscriber::fmt::init();
     return Ok(None);

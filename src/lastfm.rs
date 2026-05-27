@@ -57,7 +57,7 @@ struct ImageNode {
 }
 
 #[instrument]
-pub async fn handle(State(mut state): State<AppState>) -> Response {
+pub async fn now_playing(State(mut state): State<AppState>) -> Response {
   if let Ok(Some(value)) = state.redis.get_json::<TrackNode>(CACHE_KEY).await {
     return ok("success", Some(value));
   }

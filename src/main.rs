@@ -39,39 +39,40 @@ async fn auth_middleware(
 
 fn router(state: AppState) -> Router {
   Router::new()
-    .route("/lastfm", get(lastfm::handle))
+    .route("/lastfm", get(lastfm::now_playing))
     .nest(
       "/hardcover",
-      Router::new().route("/books", get(hardcover::handle)),
+      Router::new().route("/books", get(hardcover::books)),
     )
     .nest(
       "/geo",
       Router::new()
-        .route("/ingest", post(geo::ingest::handle))
+        .route("/ingest", post(geo::ingest::ingest))
         .nest(
           "/query",
-          Router::new().route("/latest", get(geo::query::latest::handle)),
+          Router::new().route("/latest", get(geo::query::latest::latest_location)),
         ),
     )
     .nest(
       "/weather",
       Router::new()
-        .route("/conditions", get(weather::conditions::handle))
-        .route("/pollution", get(weather::pollution::handle)),
+        .route("/conditions", get(weather::conditions::current_conditions))
+        .route("/pollution", get(weather::pollution::current_pollution)),
     )
     .layer(middleware::from_fn_with_state(
       state.clone(),
       auth_middleware,
     ))
-    .layer(TraceLayer::new_for_http().make_span_with(|req: &http::Request<_>| {
-      let parent_cx = global::get_text_map_propagator(|prop| {
-        prop.extract(&HeaderExtractor(req.headers()))
-      });
+    .layer(
+      TraceLayer::new_for_http().make_span_with(|req: &http::Request<_>| {
+        let parent_cx =
+          global::get_text_map_propagator(|prop| prop.extract(&HeaderExtractor(req.headers())));
 
-      let span = info_span!("http.request", method = %&req.method(), uri = %&req.uri());
-      let _ = span.set_parent(parent_cx);
-      span
-    }))
+        let span = info_span!("http.request", method = %&req.method(), uri = %&req.uri());
+        let _ = span.set_parent(parent_cx);
+        span
+      }),
+    )
     .with_state(state)
 }
 

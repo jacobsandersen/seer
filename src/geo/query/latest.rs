@@ -51,7 +51,7 @@ pub async fn get_latest_location(
 }
 
 #[instrument]
-pub async fn handle(State(mut state): State<AppState>) -> Response {
+pub async fn latest_location(State(mut state): State<AppState>) -> Response {
   match get_latest_location(&mut state).await {
     Ok(None) => ok::<()>("no_data", None),
     Ok(Some(location)) => ok("success", Some(location)),

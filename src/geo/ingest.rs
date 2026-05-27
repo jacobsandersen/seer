@@ -56,7 +56,7 @@ async fn ingest_batch(pool: &sqlx::PgPool, payload: IngestionPayload) -> Result<
 }
 
 #[instrument]
-pub async fn handle(
+pub async fn ingest(
   State(state): State<AppState>,
   Json(payload): Json<IngestionPayload>,
 ) -> Response {
