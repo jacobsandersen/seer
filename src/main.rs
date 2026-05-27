@@ -67,7 +67,28 @@ fn router(state: AppState) -> Router {
       TraceLayer::new_for_http().make_span_with(|req: &http::Request<_>| {
         let parent_cx =
           global::get_text_map_propagator(|prop| prop.extract(&HeaderExtractor(req.headers())));
-        let span = info_span!("http.request", method = %&req.method(), uri = %&req.uri());
+
+        let ua = req
+          .headers()
+          .get("user-agent")
+          .and_then(|v| v.to_str().ok())
+          .unwrap_or("unknown");
+
+        let ip = req
+          .headers()
+          .get("x-forwarded-for")
+          .or(req.headers().get("x-real-ip"))
+          .and_then(|v| v.to_str().ok())
+          .unwrap_or("unknown");
+
+        let span = info_span!(
+          "http.request",
+          method = %&req.method(),
+          uri = %&req.uri(),
+          user_agent = %ua,
+          client_ip = %ip
+        );
+
         let _ = span.set_parent(parent_cx);
         span
       }),

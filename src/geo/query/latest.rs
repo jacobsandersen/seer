@@ -28,9 +28,10 @@ pub async fn get_latest_location(
     return Ok(Some(pos));
   }
 
-  let data: Option<(serde_json::Value,)> = sqlx::query_as("select data from geodata order by ts desc limit 1")
-    .fetch_optional(&state.db)
-    .await?;
+  let data: Option<(serde_json::Value,)> =
+    sqlx::query_as("select data from geodata order by ts desc limit 1")
+      .fetch_optional(&state.db)
+      .await?;
 
   match data {
     None => Ok(None),
