@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 use serde::Deserialize;
-use validator::Validate;
+use validator::{Validate, ValidationError};
 
 static RE_IPV4: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(
@@ -12,10 +12,15 @@ static RE_IPV4: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 #[derive(Debug, Validate, Deserialize)]
+#[validate(schema(function = "validate_seer_config_struct_level"))]
 pub struct SeerConfig {
   /// Server binding settings
   #[validate(nested)]
   pub binding: Binding,
+
+  /// Metrics server binding settings
+  #[validate(nested)]
+  pub metrics_binding: Binding,
 
   /// The hardcover API key
   pub hardcover_key: String,
@@ -41,6 +46,14 @@ pub struct SeerConfig {
   /// The db configuration for data storage
   #[validate(nested)]
   pub db: Db,
+}
+
+fn validate_seer_config_struct_level(cfg: &SeerConfig) -> Result<(), ValidationError> {
+  if cfg.binding.ip == cfg.metrics_binding.ip && cfg.binding.port == cfg.metrics_binding.port {
+    return Err(ValidationError::new("bindings_must_be_distinct"));
+  }
+
+  Ok(())
 }
 
 #[derive(Debug, Validate, Deserialize)]

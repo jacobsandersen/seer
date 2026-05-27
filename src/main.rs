@@ -12,6 +12,7 @@ use axum_extra::{
   headers::{authorization::Bearer, Authorization},
   TypedHeader,
 };
+use axum_prometheus::{metrics_exporter_prometheus::PrometheusHandle, PrometheusMetricLayer};
 use config::{Config, Environment, File};
 use opentelemetry::global;
 use opentelemetry_http::HeaderExtractor;
@@ -37,8 +38,10 @@ async fn auth_middleware(
   next.run(request).await
 }
 
-fn router(state: AppState) -> Router {
-  Router::new()
+fn public_router(state: AppState) -> (Router, PrometheusHandle) {
+  let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
+
+  let router = Router::new()
     .route("/lastfm", get(lastfm::now_playing))
     .nest(
       "/hardcover",
@@ -93,7 +96,21 @@ fn router(state: AppState) -> Router {
         span
       }),
     )
-    .with_state(state)
+    .layer(prometheus_layer)
+    .with_state(state);
+
+  (router, metric_handle)
+}
+
+fn metric_router(metric_handle: PrometheusHandle) -> Router {
+  Router::new().route("/metrics", get(|| async move { metric_handle.render() }))
+}
+
+async fn serve(app: Router, binding: &str) {
+  let listener = TcpListener::bind(binding)
+    .await
+    .expect(&format!("failed to bind: {binding}"));
+  axum::serve(listener, app).await.unwrap();
 }
 
 #[tokio::main]
@@ -127,19 +144,16 @@ async fn main() -> anyhow::Result<()> {
 
   info!("creating app state...");
   let binding = &config.binding.to_string();
+  let metrics_binding = &config.metrics_binding.to_string();
   let state = AppState { config, redis, db };
 
   info!("setting up routes...");
-  let router = router(state);
+  let (public, metric_handle) = public_router(state);
+  let metrics = metric_router(metric_handle);
 
-  info!("binding tcp listener...");
-  let listener = TcpListener::bind(binding)
-    .await
-    .expect("Failed to bind TCP listener");
+  info!("seer is listening on {binding} (metrics on {metrics_binding})");
 
-  info!("seer is listening on {binding}");
-
-  let _ = axum::serve(listener, router).await;
+  tokio::join!(serve(public, binding), serve(metrics, metrics_binding));
 
   info!("seer is shutting down...");
 
