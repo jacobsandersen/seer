@@ -56,7 +56,7 @@ struct ImageNode {
   text: String,
 }
 
-#[instrument]
+#[instrument(skip(state))]
 pub async fn now_playing(State(mut state): State<AppState>) -> Response {
   if let Ok(Some(value)) = state.redis.get_json::<TrackNode>(CACHE_KEY).await {
     return ok("success", Some(value));
@@ -73,7 +73,7 @@ pub async fn now_playing(State(mut state): State<AppState>) -> Response {
   ok("success", now_playing)
 }
 
-#[instrument]
+#[instrument(skip(state))]
 async fn fetch_now_playing(state: &mut AppState) -> Result<TrackNode, NowPlayingError> {
   let res = reqwest::Client::new()
     .get(API_BASE_URL)

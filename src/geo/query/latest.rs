@@ -18,7 +18,7 @@ pub enum LatestLocationError {
   Sqlx(#[from] sqlx::Error),
 }
 
-#[instrument]
+#[instrument(skip(state))]
 pub async fn get_latest_location(
   state: &mut AppState,
 ) -> Result<Option<GeoJson>, LatestLocationError> {
@@ -50,7 +50,7 @@ pub async fn get_latest_location(
   }
 }
 
-#[instrument]
+#[instrument(skip(state))]
 pub async fn latest_location(State(mut state): State<AppState>) -> Response {
   match get_latest_location(&mut state).await {
     Ok(None) => ok::<()>("no_data", None),

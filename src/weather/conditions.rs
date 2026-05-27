@@ -37,7 +37,7 @@ pub enum WeatherError {
   Reqwest(#[from] reqwest::Error),
 }
 
-#[instrument]
+#[instrument(skip(state))]
 pub async fn get_conditions(
   state: &mut AppState,
   cache_key: &str,
@@ -66,7 +66,7 @@ pub async fn get_conditions(
   Ok(conditions)
 }
 
-#[instrument]
+#[instrument(skip(state))]
 pub async fn current_conditions(State(mut state): State<AppState>) -> Response {
   let cache_key = "latest_weather";
 

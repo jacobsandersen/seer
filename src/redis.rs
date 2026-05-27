@@ -51,7 +51,7 @@ pub trait JsonExt {
 }
 
 impl JsonExt for ConnectionManager {
-  #[instrument(fields(key = %key))]
+  #[instrument(skip(self))]
   async fn get_json<T: DeserializeOwned>(&mut self, key: &str) -> RedisResult<Option<T>> {
     let raw: Option<String> = self.get(key).await?;
     match raw {
@@ -62,7 +62,7 @@ impl JsonExt for ConnectionManager {
     }
   }
 
-  #[instrument(skip(value), fields(key = %key, ttl = %ttl))]
+  #[instrument(skip(self, value))]
   async fn set_json<T: Serialize>(
     &mut self,
     key: &str,
