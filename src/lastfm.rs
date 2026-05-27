@@ -11,7 +11,7 @@ use crate::{
 
 pub const SECRET_KEY: &str = "LASTFM_KEY";
 
-const CACHE_KEY: &str = "lastfm_now_playing";
+const CACHE_KEY: &str = "seer:lastfm:now_playing";
 const API_BASE_URL: &str = "http://ws.audioscrobbler.com/2.0/";
 
 #[derive(Debug, thiserror::Error)]

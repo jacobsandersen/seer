@@ -14,10 +14,6 @@ use sqlx::PgPool;
 
 use crate::config::SeerConfig;
 
-pub const CACHE_NS: &str = "seer_cache";
-pub const GEO_DB: &str = "seer_geo";
-pub const AUTH_SECRET_KEY: &str = "FIXED_AUTH";
-
 #[derive(Debug, Clone)]
 pub struct AppState {
   pub config: Arc<SeerConfig>,

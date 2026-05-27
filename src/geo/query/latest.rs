@@ -22,7 +22,7 @@ pub enum LatestLocationError {
 pub async fn get_latest_location(
   state: &mut AppState,
 ) -> Result<Option<GeoJson>, LatestLocationError> {
-  let cache_key = "geo_latest_pos";
+  let cache_key = "seer:geo:latest_pos";
 
   if let Ok(Some(pos)) = state.redis.get_json::<GeoJson>(cache_key).await {
     return Ok(Some(pos));

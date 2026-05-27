@@ -88,7 +88,7 @@ pub struct RequestOpts {
 }
 
 fn build_cache_key(status: &str, limit: usize, page: usize) -> String {
-  format!("hardcover_{status}_{limit}_{page}")
+  format!("seer:hardcover:{status}_{limit}_{page}")
 }
 
 fn status_from_str(s: &str) -> Option<usize> {
