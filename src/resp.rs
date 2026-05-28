@@ -25,6 +25,10 @@ pub fn error(message: &str) -> Response {
   to_resp::<()>(StatusCode::INTERNAL_SERVER_ERROR, message, None)
 }
 
+pub fn not_found(message: &str) -> Response {
+  to_resp::<()>(StatusCode::NOT_FOUND, message, None)
+}
+
 fn to_resp<T>(status: StatusCode, message: &str, data: Option<T>) -> Response
 where
   T: Serialize,

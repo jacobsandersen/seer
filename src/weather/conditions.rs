@@ -4,10 +4,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, instrument};
 
 use crate::{
-  geo::{self, util::Coords},
-  redis::JsonExt,
-  resp::{error, ok},
-  weather, AppState,
+  AppState, geo::{self, util::Coords}, redis::JsonExt, resp::{error, ok}, weather::build_url
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -44,7 +41,7 @@ pub async fn get_conditions(
   coords: Coords,
 ) -> Result<WeatherResp, WeatherError> {
   let conditions = reqwest::Client::new()
-    .get(weather::OPENWEATHER_BASE_URL)
+    .get(build_url("weather"))
     .query(&[
       ("appid", &state.config.openweather_key),
       ("lat", &format!("{}", coords.latitude)),
@@ -67,38 +64,31 @@ pub async fn get_conditions(
 }
 
 #[instrument(skip(state))]
-pub async fn current_conditions(State(mut state): State<AppState>) -> Response {
+pub async fn current_conditions(State(mut state): State<AppState>) -> Result<Response, Response> {
   let cache_key = "seer:weather:conditions";
 
   if let Ok(Some(weather)) = state.redis.get_json::<WeatherResp>(cache_key).await {
-    return ok("success", Some(weather));
+    return Ok(ok("success", Some(weather)));
   }
 
   let location = geo::query::latest::get_latest_location(&mut state).await;
   if location.is_err() {
     error!("failed to get latest location: {location:?}");
-    return error("could not get latest location");
+    return Err(error("could not get latest location"));
   }
 
   let location = location.unwrap();
   if location.is_none() {
-    return error("no location available for weather query");
+    return Err(error("no location available for weather query"));
   }
 
   let conditions = match geo::util::extract_coords(location.unwrap()) {
-    None => return error("unable to extract coords from the latest location"),
+    None => return Err(error("unable to extract coords from the latest location")),
     Some(coords) => get_conditions(&mut state, cache_key, coords).await,
-  };
+  }.map_err(|e| {
+    error!("weather query error: {e:?}");
+    error("failed to query weather")
+  })?;
 
-  if conditions.is_err() {
-    error!(
-      "current condition fetch failed: {:?}",
-      conditions.unwrap_err()
-    );
-    return error("failed to fetch current conditions");
-  }
-
-  let conditions = conditions.unwrap();
-
-  ok("success", Some(conditions))
+  Ok(ok("success", Some(conditions)))
 }
