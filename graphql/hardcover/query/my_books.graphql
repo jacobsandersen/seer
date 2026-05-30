@@ -18,6 +18,7 @@ query MyBooksQuery($status_id: Int = 3, $limit: Int = 10, $offset: Int = 0) {
       read_count
       book {
         title
+        slug
         contributions {
           author {
             name

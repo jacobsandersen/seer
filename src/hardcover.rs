@@ -43,6 +43,7 @@ struct ResponsePagination {
 #[derive(Serialize, Deserialize)]
 struct DomainBook {
   title: String,
+  slug: String,
   author: String,
   image: Option<String>,
   last_read: Option<chrono::NaiveDate>,
@@ -238,6 +239,7 @@ impl TryInto<(usize, Vec<DomainBook>)> for my_books_query::ResponseData {
 
           DomainBook {
             title: book.title.clone().unwrap_or_default(),
+            slug: book.slug.clone().unwrap_or_default(),
             author: author,
             image: image,
             last_read: user_book.last_read_date,
