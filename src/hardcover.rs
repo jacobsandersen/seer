@@ -183,7 +183,7 @@ async fn fetch_books<'a>(
 
   if let Err(e) = state
     .redis
-    .set_json(cache_key, &res, chrono::Duration::days(1))
+    .set_json(cache_key, &res, chrono::Duration::hours(2))
     .await
   {
     error!("failed to put hardcover data in redis: {e:?}");

@@ -4,7 +4,11 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, instrument};
 
 use crate::{
-  AppState, geo::{self, util::Coords}, redis::JsonExt, resp::{error, ok}, weather::build_url
+  geo::{self, util::Coords},
+  redis::JsonExt,
+  resp::{error, ok},
+  weather::build_url,
+  AppState,
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -85,7 +89,8 @@ pub async fn current_conditions(State(mut state): State<AppState>) -> Result<Res
   let conditions = match geo::util::extract_coords(location.unwrap()) {
     None => return Err(error("unable to extract coords from the latest location")),
     Some(coords) => get_conditions(&mut state, cache_key, coords).await,
-  }.map_err(|e| {
+  }
+  .map_err(|e| {
     error!("weather query error: {e:?}");
     error("failed to query weather")
   })?;

@@ -3,23 +3,29 @@ use chrono::Duration;
 use serde::{Deserialize, Serialize};
 use tracing::{error, instrument};
 
-use crate::{AppState, geo::{self, util::Coords}, redis::JsonExt, resp::{error, not_found, ok}, weather::build_url};
+use crate::{
+  geo::{self, util::Coords},
+  redis::JsonExt,
+  resp::{error, not_found, ok},
+  weather::build_url,
+  AppState,
+};
 
 #[derive(Debug, Deserialize)]
 struct PollutionResp {
-  list: Vec<PollutionData>
+  list: Vec<PollutionData>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PollutionData {
   dt: u64,
   main: PollutionMain,
-  components: PollutionComponents
+  components: PollutionComponents,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct PollutionMain {
-  aqi: f64
+  aqi: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -31,13 +37,13 @@ struct PollutionComponents {
   so2: f64,
   pm2_5: f64,
   pm10: f64,
-  nh3: f64
+  nh3: f64,
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum PollutionError {
   #[error("reqwest error: {0}")]
-  Reqwest(#[from] reqwest::Error)
+  Reqwest(#[from] reqwest::Error),
 }
 
 #[instrument(skip(state))]
@@ -70,7 +76,7 @@ pub async fn get_pollution(
     return Ok(Some(data.clone()));
   }
 
-  return Ok(None)
+  return Ok(None);
 }
 
 #[instrument(skip(state))]
@@ -95,7 +101,8 @@ pub async fn current_pollution(State(mut state): State<AppState>) -> Result<Resp
   let pollution = match geo::util::extract_coords(location.unwrap()) {
     None => return Err(error("unable to extract coords from the latest location")),
     Some(coords) => get_pollution(&mut state, cache_key, coords).await,
-  }.map_err(|e| {
+  }
+  .map_err(|e| {
     error!("pollution query failed: {e:?}");
     error("failed to fetch current pollution")
   })?
