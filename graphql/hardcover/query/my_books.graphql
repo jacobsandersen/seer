@@ -10,7 +10,7 @@ query MyBooksQuery($status_id: Int = 3, $limit: Int = 10, $offset: Int = 0) {
     
     user_books(
       where: {status_id: {_eq: $status_id}}
-      order_by: [{last_read_date: desc}, {date_added: desc}]
+      order_by: [{last_read_date: desc}, {date_added: desc}, {id: desc}]
       limit: $limit
       offset: $offset
     ) {
