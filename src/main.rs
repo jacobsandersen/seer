@@ -53,7 +53,9 @@ fn public_router(state: AppState) -> (Router, PrometheusHandle) {
         .route("/ingest", post(geo::ingest::ingest))
         .nest(
           "/query",
-          Router::new().route("/latest", get(geo::query::latest::latest_location)),
+          Router::new()
+            .route("/latest", get(geo::query::latest::latest_location))
+            .route("/range", get(geo::query::range::locations_in_range)),
         ),
     )
     .nest(
