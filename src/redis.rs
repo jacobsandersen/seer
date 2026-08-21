@@ -10,30 +10,24 @@ use tracing::{info, instrument};
 use crate::config::Redis;
 
 pub async fn initialize_redis(cfg: &Redis) -> Result<ConnectionManager, RedisError> {
-  let url = format!("redis://{}:{}", &cfg.host, &cfg.port);
+  let url = format!(
+    "redis://{}:{}@{}:{}/{}",
+    urlencoding::encode(&cfg.username),
+    urlencoding::encode(&cfg.password),
+    &cfg.host,
+    &cfg.port,
+    &cfg.dbno,
+  );
 
   info!("redis: connecting to: {url}");
   let client = Client::open(url)?;
-  let mut conn = ConnectionManager::new_with_config(
+  let conn = ConnectionManager::new_with_config(
     client,
     ConnectionManagerConfig::new()
       .set_connection_timeout(Some(Duration::from_secs(30)))
       .set_response_timeout(Some(Duration::from_secs(5))),
   )
   .await?;
-
-  info!("redis: authenticating...");
-  redis::cmd("AUTH")
-    .arg(&cfg.username)
-    .arg(&cfg.password)
-    .query_async::<()>(&mut conn)
-    .await?;
-
-  info!("redis: selecting db...");
-  redis::cmd("SELECT")
-    .arg(&cfg.dbno)
-    .query_async::<()>(&mut conn)
-    .await?;
 
   info!("redis: ok");
   Ok(conn)
