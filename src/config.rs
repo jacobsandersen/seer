@@ -76,10 +76,6 @@ impl std::fmt::Display for Binding {
 pub struct Telemetry {
   /// Whether to use OTel
   pub enable: bool,
-
-  /// Where to ship OTel junk
-  #[validate(url)]
-  pub otel_exporter_endpoint: String,
 }
 
 #[derive(Debug, Validate, Deserialize)]
