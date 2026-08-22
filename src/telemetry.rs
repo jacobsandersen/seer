@@ -1,11 +1,7 @@
-use std::{env, fs};
+use std::env;
 
-use anyhow::Context;
 use opentelemetry::{global, trace::TracerProvider, Key};
-use opentelemetry_otlp::{
-  tonic_types::transport::{Certificate, ClientTlsConfig},
-  LogExporter, SpanExporter, WithTonicConfig,
-};
+use opentelemetry_otlp::{LogExporter, SpanExporter};
 use opentelemetry_sdk::{
   logs::SdkLoggerProvider,
   propagation::TraceContextPropagator,
@@ -34,36 +30,8 @@ fn resource() -> Resource {
   builder.build()
 }
 
-/// Mirrors the exporter's endpoint resolution (signal-specific env var, then
-/// the generic one, then the plaintext gRPC default) to know whether the
-/// channel will speak TLS.
-fn resolves_to_https(signal_var: &str) -> bool {
-  let explicit = |var: &str| env::var(var).ok().filter(|value| !value.is_empty());
-
-  explicit(signal_var)
-    .or_else(|| explicit("OTEL_EXPORTER_OTLP_ENDPOINT"))
-    .is_some_and(|endpoint| endpoint.starts_with("https://"))
-}
-
-fn tls_config() -> anyhow::Result<ClientTlsConfig> {
-  let mut tls = ClientTlsConfig::new().with_enabled_roots();
-
-  if let Some(path) = env::var_os("OTEL_EXPORTER_OTLP_CERTIFICATE").filter(|path| !path.is_empty())
-  {
-    let pem =
-      fs::read(&path).with_context(|| format!("failed to read {}", path.to_string_lossy()))?;
-    tls = tls.ca_certificate(Certificate::from_pem(pem));
-  }
-
-  Ok(tls)
-}
-
 fn init_tracer() -> anyhow::Result<SdkTracerProvider> {
-  let mut builder = SpanExporter::builder().with_tonic();
-  if resolves_to_https("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") {
-    builder = builder.with_tls_config(tls_config()?);
-  }
-  let exporter = builder.build()?;
+  let exporter = SpanExporter::builder().with_http().build()?;
 
   let provider = SdkTracerProvider::builder()
     .with_resource(resource())
@@ -74,11 +42,7 @@ fn init_tracer() -> anyhow::Result<SdkTracerProvider> {
 }
 
 fn init_logs() -> anyhow::Result<SdkLoggerProvider> {
-  let mut builder = LogExporter::builder().with_tonic();
-  if resolves_to_https("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT") {
-    builder = builder.with_tls_config(tls_config()?);
-  }
-  let exporter = builder.build()?;
+  let exporter = LogExporter::builder().with_http().build()?;
 
   let provider = SdkLoggerProvider::builder()
     .with_resource(resource())
