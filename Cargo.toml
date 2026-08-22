@@ -22,7 +22,7 @@ tracing-opentelemetry = "0.33.0"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 opentelemetry = "0.32.0"
 opentelemetry-appender-tracing = "0.32.0"
-opentelemetry-otlp = { version = "0.32.0", features = ["grpc-tonic", "logs", "tls-ring", "tls-roots"] }
+opentelemetry-otlp = { version = "0.32.0", features = ["logs", "http-proto"] }
 opentelemetry-http = "0.32.0"
 opentelemetry-semantic-conventions = "0.32.0"
 opentelemetry_sdk = { version = "0.32.0", features = ["rt-tokio", "logs"] }
