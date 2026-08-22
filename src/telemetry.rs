@@ -1,7 +1,13 @@
-use opentelemetry::{global, trace::TracerProvider, KeyValue};
-use opentelemetry_otlp::{LogExporter, SpanExporter, WithExportConfig};
+use std::env;
+
+use opentelemetry::{global, trace::TracerProvider, Key};
+use opentelemetry_otlp::{LogExporter, SpanExporter};
 use opentelemetry_sdk::{
-  logs::SdkLoggerProvider, propagation::TraceContextPropagator, trace::SdkTracerProvider, Resource,
+  logs::SdkLoggerProvider,
+  propagation::TraceContextPropagator,
+  resource::{EnvResourceDetector, ResourceDetector},
+  trace::SdkTracerProvider,
+  Resource,
 };
 use opentelemetry_semantic_conventions::resource::SERVICE_NAME;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -9,16 +15,23 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 use crate::config::Telemetry;
 
 fn resource() -> Resource {
-  Resource::builder()
-    .with_attribute(KeyValue::new(SERVICE_NAME, "seer"))
-    .build()
+  let service_name_from_env = env::var("OTEL_SERVICE_NAME")
+    .map(|v| !v.is_empty())
+    .unwrap_or(false)
+    || EnvResourceDetector::new()
+      .detect()
+      .get_ref(&Key::new(SERVICE_NAME))
+      .is_some();
+
+  let mut builder = Resource::builder();
+  if !service_name_from_env {
+    builder = builder.with_service_name("seer");
+  }
+  builder.build()
 }
 
-fn init_tracer(otel_endpoint: &str) -> anyhow::Result<SdkTracerProvider> {
-  let exporter = SpanExporter::builder()
-    .with_tonic()
-    .with_endpoint(otel_endpoint)
-    .build()?;
+fn init_tracer() -> anyhow::Result<SdkTracerProvider> {
+  let exporter = SpanExporter::builder().with_tonic().build()?;
 
   let provider = SdkTracerProvider::builder()
     .with_resource(resource())
@@ -28,11 +41,8 @@ fn init_tracer(otel_endpoint: &str) -> anyhow::Result<SdkTracerProvider> {
   Ok(provider)
 }
 
-fn init_logs(otel_endpoint: &str) -> anyhow::Result<SdkLoggerProvider> {
-  let exporter = LogExporter::builder()
-    .with_tonic()
-    .with_endpoint(otel_endpoint)
-    .build()?;
+fn init_logs() -> anyhow::Result<SdkLoggerProvider> {
+  let exporter = LogExporter::builder().with_tonic().build()?;
 
   let provider = SdkLoggerProvider::builder()
     .with_resource(resource())
@@ -52,8 +62,8 @@ pub fn init_telemetry(
     return Ok(None);
   }
 
-  let tracer = init_tracer(&cfg.otel_exporter_endpoint)?;
-  let logger_provider = init_logs(&cfg.otel_exporter_endpoint)?;
+  let tracer = init_tracer()?;
+  let logger_provider = init_logs()?;
 
   tracing_subscriber::registry()
     .with(EnvFilter::from_default_env())
